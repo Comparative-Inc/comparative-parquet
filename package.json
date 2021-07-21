@@ -1,6 +1,6 @@
 {
   "name": "comparative-parquet",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Native arrow bindings for parquet reading",
   "main": "lib/index.js",
   "gypfile": true,
