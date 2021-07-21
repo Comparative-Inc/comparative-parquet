@@ -16,6 +16,11 @@ typedef shared_ptr<arrow::ChunkedArray> ArrowColumnPtr;
 typedef shared_ptr<arrow::Array>        ArrowArrayPtr;
 typedef shared_ptr<arrow::Field>        ArrowFieldPtr;
 
+#define JS_ERROR(message)  do {\
+    Napi::Error::New(env, message).ThrowAsJavaScriptException(); \
+    return env.Null(); } while(0)
+
+
 class ParquetReader : public Napi::ObjectWrap<ParquetReader> {
 public:
   std::string _filepath;
@@ -25,7 +30,8 @@ public:
   vector<ArrowColumnPtr> _columns;
   vector<vector<ArrowArrayPtr>> _chunksByColumn;
   vector<ArrowFieldPtr> _fieldByColumn;
-  int _columnCount;
+  int64_t _columnCount;
+  int64_t _rowCount;
   bool _isOpen;
 
 public:
@@ -35,6 +41,8 @@ public:
         "ParquetReader", {
           InstanceMethod("getFilepath",    &ParquetReader::GetFilepath),
           InstanceMethod("getColumnNames", &ParquetReader::GetColumnNames),
+          InstanceMethod("getColumnCount", &ParquetReader::GetColumnCount),
+          InstanceMethod("getRowCount",    &ParquetReader::GetRowCount),
           InstanceMethod("open",           &ParquetReader::Open),
           InstanceMethod("close",          &ParquetReader::Close),
           InstanceMethod("readRow",        &ParquetReader::ReadRow),
@@ -53,6 +61,9 @@ public:
     : Napi::ObjectWrap<ParquetReader>(info)
     , _pool(arrow::default_memory_pool())
     , _columns()
+    , _columnCount(0)
+    , _rowCount(0)
+    , _isOpen(false)
   {
     Napi::Env env = info.Env();
 
@@ -71,7 +82,7 @@ public:
     Napi::Env env = info.Env();
 
     if (_isOpen)
-      return Napi::Boolean::New(env, false);
+      return Napi::Boolean::New(env, _isOpen);
 
     _input = arrow::io::MemoryMappedFile::Open(
         _filepath.c_str(), arrow::io::FileMode::READ).ValueOrDie();
@@ -79,8 +90,7 @@ public:
     /* Open file */
     auto status = parquet::arrow::OpenFile(_input, _pool, &_reader);
     if (!status.ok()) {
-      Napi::Error::New(env, "Failed to open file").ThrowAsJavaScriptException();
-      return Napi::Boolean::New(env, _isOpen);
+      JS_ERROR("Failed to open file");
     }
 
     _isOpen = true;
@@ -88,8 +98,11 @@ public:
     /* Read schema & columns */
     ArrowSchemaPtr schema;
     if (!_reader->GetSchema(&schema).ok()) {
-      Napi::Error::New(env, "Failed to read schema").ThrowAsJavaScriptException();
-      return Napi::Boolean::New(env, _isOpen);
+      JS_ERROR("Failed to read schema");
+    }
+
+    if (!_reader->ScanContents({}, 256, &_rowCount).ok()) {
+      JS_ERROR("Failed to read row count");
     }
 
     _columnCount = schema->num_fields();
@@ -97,8 +110,7 @@ public:
     for (auto i = 0; i < _columnCount; i++) {
       ArrowColumnPtr column;
       if (!_reader->ReadColumn(i, &column).ok()) {
-        Napi::Error::New(env, "Failed to read column").ThrowAsJavaScriptException();
-        return Napi::Boolean::New(env, _isOpen);
+        JS_ERROR("Failed to read column");
       }
       _columns.push_back(column);
       _chunksByColumn.push_back(column->chunks());
@@ -118,7 +130,7 @@ public:
     if (status.ok()) {
       _isOpen = false;
     } else {
-      Napi::Error::New(env, "Failed to close file").ThrowAsJavaScriptException();
+      JS_ERROR("Failed to close file");
     }
 
     return Napi::Boolean::New(env, _isOpen);
@@ -132,8 +144,7 @@ public:
     Napi::Env env = info.Env();
 
     if (!_isOpen) {
-      Napi::Error::New(env, "File is not open").ThrowAsJavaScriptException();
-      return env.Null();
+      JS_ERROR("File is not open");
     }
 
     auto results = Napi::Array::New(env, _columnCount);
@@ -146,12 +157,21 @@ public:
     return results;
   }
 
+  Napi::Value GetColumnCount(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    return Napi::Number::New(env, _columnCount);
+  }
+
+  Napi::Value GetRowCount(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+    return Napi::Number::New(env, _rowCount);
+  }
+
   Napi::Value ReadRow(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
     if (!_isOpen) {
-      Napi::Error::New(env, "File is not open").ThrowAsJavaScriptException();
-      return env.Null();
+      JS_ERROR("File is not open");
     }
 
     if (info.Length() <= 0 || !info[0].IsNumber()) {
