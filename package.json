@@ -6,6 +6,11 @@
     "parquet",
     "arrow"
   ],
+  "homepage": "https://github.com/Comparative-Inc/comparative-parquet",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Comparative-Inc/comparative-parquet.git"
+  },
   "main": "lib/index.js",
   "gypfile": true,
   "scripts": {
