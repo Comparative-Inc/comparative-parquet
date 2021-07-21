@@ -2,5 +2,7 @@
 set -euf
 set -o pipefail
 
-npm run configure
-npm run build
+which node-gyp
+
+npx node-gyp configure --release
+npx node-gyp build
