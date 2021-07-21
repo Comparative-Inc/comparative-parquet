@@ -10,9 +10,9 @@
   "gypfile": true,
   "scripts": {
     "postinstall": "./scripts/install.sh",
-    "configure": "npx node-gyp configure --release",
-    "configure:debug": "npx node-gyp configure --debug",
-    "build": "npx node-gyp build",
+    "configure": "node-gyp configure --release",
+    "configure:debug": "node-gyp configure --debug",
+    "build": "node-gyp build",
     "compile-commands": "./scripts/generate-compile-commands.sh",
     "//end": "true"
   },
