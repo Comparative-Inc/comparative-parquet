@@ -12,12 +12,11 @@
     "url": "git+https://github.com/Comparative-Inc/comparative-parquet.git"
   },
   "main": "lib/index.js",
-  "gypfile": true,
   "scripts": {
     "postinstall": "./scripts/install.sh",
-    "configure": "node-gyp configure --release",
-    "configure:debug": "node-gyp configure --debug",
-    "build": "node-gyp build",
+    "configure": "npx node-gyp configure --release",
+    "configure:debug": "npx node-gyp configure --debug",
+    "build": "npx node-gyp build",
     "compile-commands": "./scripts/generate-compile-commands.sh",
     "//end": "true"
   },
