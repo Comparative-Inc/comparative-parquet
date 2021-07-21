@@ -9,8 +9,9 @@
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
       ],
-      "cflags!": [ "-fno-exceptions" ],
-      "cflags_cc!": [ "-fno-exceptions" ],
+      "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
+      "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
+      "cflags_cc": [ "-std=c++17" ],
       "cflags": [
           "<!@(pkg-config --cflags parquet arrow) -Wall -g",
       ],

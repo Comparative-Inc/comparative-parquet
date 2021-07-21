@@ -1,8 +1,8 @@
 #include <napi.h>
-#include "myobject.h"
+#include "parquet_reader.h"
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-  return MyObject::Init(env, exports);
+  return ParquetReader::Init(env, exports);
 }
 
 NODE_API_MODULE(addon, InitAll)

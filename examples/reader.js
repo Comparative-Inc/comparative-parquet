@@ -1,12 +1,10 @@
+/*
+ * reader.js
+ */
 
-# Parquet Node.js bindings
+const lib = require('../lib')
 
-Uses Apache Arrow to provide native bindings for parquet files in nodejs.
-
-```javascript
-
-const parquet = require('comparative-parquet')
-const reader = new parquet.ParquetReader('file.parquet')
+const reader = new lib.ParquetReader('/home/romgrk/github/parquet-read/input.parquet')
 reader.open()
 
 console.log(reader)
@@ -18,5 +16,3 @@ console.log(reader.readRow(2))
 console.log(reader.readRow(3))
 
 reader.close()
-
-```
