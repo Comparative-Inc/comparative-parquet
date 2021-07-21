@@ -1,0 +1,24 @@
+{
+  "name": "comparative-parquet",
+  "version": "0.0.1",
+  "description": "Native arrow bindings for parquet reading",
+  "main": "lib/index.js",
+  "gypfile": true,
+  "scripts": {
+    "configure": "npx node-gyp configure --release",
+    "configure:debug": "npx node-gyp configure --debug",
+    "build": "npx node-gyp build",
+    "compile-commands": "./scripts/generate-compile-commands.sh",
+    "//end": "true"
+  },
+  "engines": {
+    "node": ">=12"
+  },
+  "dependencies": {
+    "bindings": "~1.5.0",
+    "node-addon-api": "^4.0.0"
+  },
+  "devDependencies": {
+    "node-gyp": "^8.1.0"
+  }
+}
