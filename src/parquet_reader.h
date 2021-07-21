@@ -1,5 +1,5 @@
-#ifndef MYOBJECT_H
-#define MYOBJECT_H
+#ifndef PARQUET_READER_H
+#define PARQUET_READER_H
 
 #include <napi.h>
 
