@@ -46,6 +46,7 @@ public:
           InstanceMethod("open",           &ParquetReader::Open),
           InstanceMethod("close",          &ParquetReader::Close),
           InstanceMethod("readRow",        &ParquetReader::ReadRow),
+          InstanceMethod("readRowAsArray", &ParquetReader::ReadRowAsArray),
         });
 
     auto constructor = new Napi::FunctionReference();
@@ -168,6 +169,29 @@ public:
   }
 
   Napi::Value ReadRow(const Napi::CallbackInfo& info) {
+    Napi::Env env = info.Env();
+
+    if (!_isOpen) {
+      JS_ERROR("File is not open");
+    }
+
+    if (info.Length() <= 0 || !info[0].IsNumber()) {
+      Napi::TypeError::New(env, "Number expected").ThrowAsJavaScriptException();
+      return env.Null();
+    }
+
+    auto rowIndex = info[0].As<Napi::Number>().Int64Value();
+    auto results = Napi::Object::New(env);
+
+    for (auto i = 0; i < _columnCount; i++) {
+      auto key = _fieldByColumn[i]->name();
+      results[key] = this->ReadValue(info, i, rowIndex);
+    }
+
+    return results;
+  }
+
+  Napi::Value ReadRowAsArray(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
     if (!_isOpen) {
