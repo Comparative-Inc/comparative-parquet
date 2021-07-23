@@ -234,8 +234,11 @@ public:
 
       switch (_fieldByColumn[columnIndex]->type()->id()) {
         case arrow::Type::BOOL: {
-          auto view = array->GetValues<bool>(1, 0);
-          auto value = view[index];
+          auto view = array->GetValues<uint8_t>(1, 0);
+          auto viewIndex = index / 8;
+          auto offset = index % 8;
+          auto bits = view[viewIndex];
+          auto value = (bits >> offset) & 1;
           return Napi::Boolean::New(env, value);
         }
         case arrow::Type::TIMESTAMP:
