@@ -91,27 +91,30 @@ public:
     /* Open file */
     auto status = parquet::arrow::OpenFile(_input, _pool, &_reader);
     if (!status.ok()) {
-      JS_ERROR("Failed to open file");
+      JS_ERROR(std::string("Failed to open file: ") + status.ToString());
     }
 
     _isOpen = true;
 
     /* Read schema & columns */
     ArrowSchemaPtr schema;
-    if (!_reader->GetSchema(&schema).ok()) {
-      JS_ERROR("Failed to read schema");
+    status = _reader->GetSchema(&schema);
+    if (!status.ok()) {
+      JS_ERROR(std::string("Failed to read schema: " + status.ToString()));
     }
 
-    if (!_reader->ScanContents({}, 256, &_rowCount).ok()) {
-      JS_ERROR("Failed to read row count");
+    status = _reader->ScanContents({}, 256, &_rowCount);
+    if (!status.ok()) {
+      JS_ERROR(std::string("Failed to read row count: ") + status.ToString());
     }
 
     _columnCount = schema->num_fields();
 
     for (auto i = 0; i < _columnCount; i++) {
       ArrowColumnPtr column;
-      if (!_reader->ReadColumn(i, &column).ok()) {
-        JS_ERROR("Failed to read column");
+      status = _reader->ReadColumn(i, &column);
+      if (!status.ok()) {
+        JS_ERROR(std::string("Failed to read column: ") + status.ToString());
       }
       _columns.push_back(column);
       _chunksByColumn.push_back(column->chunks());
@@ -131,7 +134,7 @@ public:
     if (status.ok()) {
       _isOpen = false;
     } else {
-      JS_ERROR("Failed to close file");
+      JS_ERROR(std::string("Failed to close file: ") + status.ToString());
     }
 
     return Napi::Boolean::New(env, _isOpen);
