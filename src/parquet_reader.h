@@ -20,6 +20,8 @@ typedef shared_ptr<arrow::Field>        ArrowFieldPtr;
     Napi::Error::New(env, message).ThrowAsJavaScriptException(); \
     return env.Null(); } while(0)
 
+static int64_t const MIN_SAFE_INTEGER = -9007199254740991L;
+static int64_t const MAX_SAFE_INTEGER =  9007199254740991L;
 
 class ParquetReader : public Napi::ObjectWrap<ParquetReader> {
 public:
@@ -248,7 +250,10 @@ public:
         case arrow::Type::INT64: {
           auto view = array->GetValues<int64_t>(1, 0);
           auto value = view[index];
-          return Napi::Number::New(env, value);
+          if (value <= MIN_SAFE_INTEGER || value >= MAX_SAFE_INTEGER)
+            return Napi::BigInt::New(env, value);
+          else
+            return Napi::Number::New(env, value);
         }
         case arrow::Type::DOUBLE: {
           auto view = array->GetValues<double>(1, 0);
