@@ -10,7 +10,7 @@
       ],
       "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
-      "cflags_cc": [ "-std=c++17" ],
+      "cflags_cc": [ "-std=c++17", "-fexceptions", "-frtti" ],
       "cflags": [
           "<!@(pkg-config --cflags parquet arrow) -Wall -g",
       ],
@@ -30,7 +30,7 @@
               ],
               "xcode_settings": {
                   "OTHER_CFLAGS": [
-                      "<!@(pkg-config --cflags parquet arrow)",
+                      "<!@(pkg-config --cflags parquet arrow) -fexceptions -frtti",
                   ],
                   "OTHER_LDFLAGS": [
                       "<!@(pkg-config --libs parquet arrow) -lpthread",
