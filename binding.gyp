@@ -2,7 +2,6 @@
   "targets": [
     {
       "target_name": "comparative_parquet",
-      'defines': [ 'NAPI_DISABLE_CPP_EXCEPTIONS' ],
       "sources": [
         "src/main.cc",
       ],
