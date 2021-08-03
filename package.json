@@ -1,6 +1,6 @@
 {
   "name": "comparative-parquet",
-  "version": "0.2.5",
+  "version": "0.3.0",
   "description": "Native arrow bindings for parquet files",
   "keywords": [
     "parquet",
