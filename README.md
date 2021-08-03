@@ -4,10 +4,8 @@
 Uses Apache Arrow to provide native bindings for parquet files in nodejs.
 
 ```javascript
-
 const parquet = require('comparative-parquet')
-const reader = new parquet.ParquetReader('file.parquet')
-reader.open()
+const reader = parquet.ParquetReader.openFile('file.parquet')
 
 console.log(reader)
 console.log(reader.getFilepath())
@@ -23,8 +21,11 @@ console.log(reader.readRowAsArray(2))
 console.log(reader.readRowAsArray(3))
 
 reader.close()
-
 ```
+
+`ParquetReader.openFile` can also take as input a directory path, with files that
+are all parquet files with matching schemas, and will operate on them as if they
+were a single file.
 
 ### Development
 
