@@ -246,6 +246,11 @@ public:
           auto value = (bits >> offset) & 1;
           return Napi::Boolean::New(env, value);
         }
+        case arrow::Type::DATE32: {
+          auto view = array->GetValues<int32_t>(1, 0);
+          auto value = view[index];
+          return Napi::Number::New(env, value);
+        }
         case arrow::Type::TIMESTAMP:
         case arrow::Type::INT64: {
           auto view = array->GetValues<int64_t>(1, 0);
