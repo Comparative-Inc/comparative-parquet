@@ -50,8 +50,9 @@ public:
     parquet::schema::NodeVector fields;
     for (uint32_t i = 0; i < keys.Length(); i++) {
       auto name = keys.Get(i).ToString().Utf8Value();
-      auto converted_type = convertedTypeFromString(schema_obj.Get(name).ToString().Utf8Value());
-      auto logical_type = logicalTypeFromString(schema_obj.Get(name).ToString().Utf8Value());
+      auto type_name = schema_obj.Get(name).ToObject().Get("type").ToString().Utf8Value();
+      auto converted_type = convertedTypeFromString(type_name);
+      auto logical_type = logicalTypeFromString(type_name);
       columns.push_back(Column{name, logical_type});
       fields.push_back(parquet::schema::PrimitiveNode::Make(
         name,
