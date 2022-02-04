@@ -27,6 +27,22 @@ reader.close()
 are all parquet files with matching schemas, and will operate on them as if they
 were a single file.
 
+```javascript
+const parquet = require('comparative-parquet')
+
+const schema = {
+  field_0: { type: 'INT64' },
+  field_1: { type: 'UTF8' },
+}
+
+const writer = new parquet.ParquetWriter(schema, 'example-out.parquet')
+writer.open()
+writer.appendRow({
+  field_0: 1,
+  field_1: 'Hello World!',
+})
+```
+
 ### Development
 
 To develop this module, after running `npm install`, `node-gyp` is the build
