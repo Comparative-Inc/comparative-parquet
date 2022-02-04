@@ -20,7 +20,8 @@ public:
       DefineClass(env,
         "ParquetWriter", {
           InstanceMethod("appendRow",    &ParquetWriter::appendRow),
-          InstanceMethod("open", &ParquetWriter::open)
+          InstanceMethod("open", &ParquetWriter::open),
+          InstanceMethod("setRowGroupSize", &ParquetWriter::setRowGroupSize)
         });
 
     auto constructor = new Napi::FunctionReference();
@@ -66,6 +67,12 @@ public:
   }
 
   Napi::Value appendRow(const Napi::CallbackInfo& info) {
+    auto env = info.Env();
+    if (info.Length() < 1 || !info[0].IsObject()) {
+      Napi::TypeError::New(env, "row::Object expected").ThrowAsJavaScriptException();
+      return Napi::Boolean::New(env, false);
+    }
+
     auto row = info[0].As<Napi::Object>();
     for (auto& i : columns) {
       switch (i.type) {
@@ -99,7 +106,7 @@ public:
     }
     os << parquet::EndRow;
 
-    return Napi::Boolean::New(info.Env(), true);
+    return Napi::Boolean::New(env, true);
   }
 
   Napi::Value open(const Napi::CallbackInfo& info) {
@@ -120,8 +127,8 @@ public:
     return Napi::Boolean::New(info.Env(), true);
   }
 
-  Napi::Value close(const Napi::CallbackInfo& info) {
-
+  Napi::Value setRowGroupSize(const Napi::CallbackInfo& info) {
+    builder.max_row_group_length(info[0].ToNumber().Int64Value());
     return Napi::Boolean::New(info.Env(), true);
   }
 
