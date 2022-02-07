@@ -81,42 +81,78 @@ public:
 
   Napi::Value appendRow(const Napi::CallbackInfo& info) {
     auto env = info.Env();
-    if (info.Length() < 1 || !info[0].IsObject()) {
-      Napi::TypeError::New(env, "row:Object expected").ThrowAsJavaScriptException();
+    if (info.Length() < 1 || (!info[0].IsObject() && !info[0].IsArray())) {
+      Napi::TypeError::New(env, "row:(Object or Array) expected").ThrowAsJavaScriptException();
       return Napi::Boolean::New(env, false);
     }
 
-    auto row = info[0].As<Napi::Object>();
-    for (auto& i : columns) {
-      switch (i.type) {
-      case parquet::Type::INT32:
-        os << row.Get(i.key).ToNumber().Int32Value();
-        break;
+    if (info[0].IsArray()) {
+      auto row = info[0].As<Napi::Array>();
+      for (size_t i = 0; i < columns.size() && i < row.Length(); i++) {
+        switch (columns[i].type) {
+        case parquet::Type::INT32:
+          os << row.Get(i).ToNumber().Int32Value();
+          break;
 
-      case parquet::Type::INT64:
-        os << row.Get(i.key).ToNumber().Int64Value();
-        break;
+        case parquet::Type::INT64:
+          os << row.Get(i).ToNumber().Int64Value();
+          break;
 
-      case parquet::Type::FLOAT:
-        os << row.Get(i.key).ToNumber().FloatValue();
-        break;
+        case parquet::Type::FLOAT:
+          os << row.Get(i).ToNumber().FloatValue();
+          break;
 
-      case parquet::Type::DOUBLE:
-        os << row.Get(i.key).ToNumber().DoubleValue();
-        break;
+        case parquet::Type::DOUBLE:
+          os << row.Get(i).ToNumber().DoubleValue();
+          break;
 
-      case parquet::Type::BOOLEAN:
-        os << row.Get(i.key).ToBoolean().Value();
-        break;
+        case parquet::Type::BOOLEAN:
+          os << row.Get(i).ToBoolean().Value();
+          break;
 
-      case parquet::Type::BYTE_ARRAY:
-        os << row.Get(i.key).ToString().Utf8Value();
-        break;
+        case parquet::Type::BYTE_ARRAY:
+          os << row.Get(i).ToString().Utf8Value();
+          break;
 
-      default:
-        os << "null";
+        default:
+          os << "null";
+        }
+      }
+
+    } else {
+      auto row = info[0].As<Napi::Object>();
+      for (auto& i : columns) {
+        switch (i.type) {
+        case parquet::Type::INT32:
+          os << row.Get(i.key).ToNumber().Int32Value();
+          break;
+
+        case parquet::Type::INT64:
+          os << row.Get(i.key).ToNumber().Int64Value();
+          break;
+
+        case parquet::Type::FLOAT:
+          os << row.Get(i.key).ToNumber().FloatValue();
+          break;
+
+        case parquet::Type::DOUBLE:
+          os << row.Get(i.key).ToNumber().DoubleValue();
+          break;
+
+        case parquet::Type::BOOLEAN:
+          os << row.Get(i.key).ToBoolean().Value();
+          break;
+
+        case parquet::Type::BYTE_ARRAY:
+          os << row.Get(i.key).ToString().Utf8Value();
+          break;
+
+        default:
+          os << "null";
+        }
       }
     }
+
     os << parquet::EndRow;
 
     return Napi::Boolean::New(env, true);
