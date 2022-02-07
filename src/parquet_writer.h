@@ -10,7 +10,7 @@
 
 #include "field_type.h"
 
-parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
+static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
   switch (type) {
   case FieldType::Type::INT32:
     return parquet::ConvertedType::INT_32;
@@ -41,7 +41,7 @@ parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
   return parquet::ConvertedType::UNDEFINED;
 }
 
-parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
+static parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
   switch (type) {
   case FieldType::Type::INT32:
     return parquet::Type::INT32;
