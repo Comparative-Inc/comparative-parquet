@@ -83,9 +83,10 @@ public:
     auto env = info.Env();
     if (info.Length() < 1 || (!info[0].IsObject() && !info[0].IsArray())) {
       Napi::TypeError::New(env, "row:(Object or Array) expected").ThrowAsJavaScriptException();
-      return Napi::Boolean::New(env, false);
+      return env.Undefined();
     }
 
+    try {
     if (info[0].IsArray()) {
       auto row = info[0].As<Napi::Array>();
       for (size_t i = 0; i < columns.size() && i < row.Length(); i++) {
@@ -155,7 +156,12 @@ public:
 
     os << parquet::EndRow;
 
-    return Napi::Boolean::New(env, true);
+    } catch (const parquet::ParquetException& e) {
+      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    return env.Undefined();
   }
 
   Napi::Value open(const Napi::CallbackInfo& info) {
@@ -169,7 +175,7 @@ public:
       );
     } catch (const parquet::ParquetException& e) {
       Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-      return Napi::Boolean::New(env, false);
+      return env.Undefined();
     }
 
     // Setup output stream
@@ -184,7 +190,7 @@ public:
 
   Napi::Value setRowGroupSize(const Napi::CallbackInfo& info) {
     builder.max_row_group_length(info[0].ToNumber().Int64Value());
-    return Napi::Boolean::New(info.Env(), true);
+    return info.Env().Undefined();
   }
 
 protected:
