@@ -12,13 +12,12 @@ const schema = {
 
 const writer = new lib.ParquetWriter(schema, 'example-out.parquet')
 writer.open()
-writer.appendRowObject({
-  field_0: 1,
-  field_1: 'As a dict',
-})
-writer.appendRowArray([
-  2,
+writer.appendRow([
+  1,
   'As an array',
 ])
-
+writer.appendRowObject({
+  field_0: 2,
+  field_1: 'As a dict',
+})
 writer.close()
