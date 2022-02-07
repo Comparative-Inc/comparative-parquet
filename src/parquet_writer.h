@@ -10,6 +10,68 @@
 
 #include "field_type.h"
 
+parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
+  switch (type) {
+  case FieldType::Type::INT32:
+    return parquet::ConvertedType::INT_32;
+
+  case FieldType::Type::INT64:
+    return parquet::ConvertedType::INT_64;
+
+  case FieldType::Type::TIMESTAMP_MICROS:
+    return parquet::ConvertedType::INT_64;
+
+  case FieldType::Type::TIMESTAMP_MILLIS:
+    return parquet::ConvertedType::INT_64;
+
+  case FieldType::Type::DATE32:
+    return parquet::ConvertedType::DATE;
+
+  case FieldType::Type::DOUBLE:
+    return parquet::ConvertedType::NONE;
+
+  case FieldType::Type::BOOLEAN:
+    return parquet::ConvertedType::NONE;
+
+  case FieldType::Type::UTF8:
+    return parquet::ConvertedType::UTF8;
+  }
+
+  // Execution only reaches here if you do something unsafe, but the compiler is complaining
+  return parquet::ConvertedType::UNDEFINED;
+}
+
+parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
+  switch (type) {
+  case FieldType::Type::INT32:
+    return parquet::Type::INT32;
+
+  case FieldType::Type::INT64:
+    return parquet::Type::INT64;
+
+  case FieldType::Type::TIMESTAMP_MICROS:
+    return parquet::Type::INT64;
+
+  case FieldType::Type::TIMESTAMP_MILLIS:
+    return parquet::Type::INT64;
+
+  case FieldType::Type::DATE32:
+    return parquet::Type::INT32;
+
+  case FieldType::Type::DOUBLE:
+    return parquet::Type::DOUBLE;
+
+  case FieldType::Type::BOOLEAN:
+    return parquet::Type::BOOLEAN;
+
+  case FieldType::Type::UTF8:
+    return parquet::Type::BYTE_ARRAY;
+  }
+
+  // Execution only reaches here if you do something unsafe, but the compiler is complaining
+  return parquet::Type::UNDEFINED;
+}
+
 struct Column {
   std::string key;
   parquet::Type::type type;
@@ -31,9 +93,10 @@ public:
     Napi::Function func =
       DefineClass(env,
         "ParquetWriter", {
-          InstanceMethod("appendRow",       &ParquetWriter::appendRow),
-          InstanceMethod("open",            &ParquetWriter::open),
-          InstanceMethod("setRowGroupSize", &ParquetWriter::setRowGroupSize),
+          InstanceMethod("appendRowArray",       &ParquetWriter::AppendRowArray),
+          InstanceMethod("appendRowObject",      &ParquetWriter::AppendRowObject),
+          InstanceMethod("open",                 &ParquetWriter::Open),
+          InstanceMethod("setRowGroupSize",      &ParquetWriter::SetRowGroupSize),
         });
 
     auto constructor = new Napi::FunctionReference();
@@ -79,15 +142,14 @@ public:
     );
   }
 
-  Napi::Value appendRow(const Napi::CallbackInfo& info) {
+  Napi::Value AppendRowArray(const Napi::CallbackInfo& info) {
     auto env = info.Env();
-    if (info.Length() < 1 || (!info[0].IsObject() && !info[0].IsArray())) {
-      Napi::TypeError::New(env, "row:(Object or Array) expected").ThrowAsJavaScriptException();
+    if (info.Length() < 1 || !info[0].IsArray()) {
+      Napi::TypeError::New(env, "row:Array expected").ThrowAsJavaScriptException();
       return env.Undefined();
     }
 
     try {
-    if (info[0].IsArray()) {
       auto row = info[0].As<Napi::Array>();
       for (size_t i = 0; i < columns.size() && i < row.Length(); i++) {
         switch (columns[i].type) {
@@ -120,8 +182,24 @@ public:
         }
       }
 
-    } else {
-      auto row = info[0].As<Napi::Object>();
+      os << parquet::EndRow;
+
+    } catch (const parquet::ParquetException& e) {
+      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    return env.Undefined();
+  }
+
+  Napi::Value AppendRowObject(const Napi::CallbackInfo& info) {
+    auto env = info.Env();
+    if (info.Length() < 1 || !info[0].IsObject()) {
+      Napi::TypeError::New(env, "row:Object expected").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+    auto row = info[0].As<Napi::Object>();
+    try {
       for (auto& i : columns) {
         switch (i.type) {
         case parquet::Type::INT32:
@@ -152,10 +230,9 @@ public:
           os << "null";
         }
       }
-    }
 
-    os << parquet::EndRow;
-
+      os << parquet::EndRow;
+      
     } catch (const parquet::ParquetException& e) {
       Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
       return env.Undefined();
@@ -164,7 +241,7 @@ public:
     return env.Undefined();
   }
 
-  Napi::Value open(const Napi::CallbackInfo& info) {
+  Napi::Value Open(const Napi::CallbackInfo& info) {
     auto env = info.Env();
     // Open file
     std::shared_ptr<arrow::io::FileOutputStream> outfile;
@@ -188,73 +265,13 @@ public:
     return Napi::Boolean::New(env, true);
   }
 
-  Napi::Value setRowGroupSize(const Napi::CallbackInfo& info) {
+  Napi::Value SetRowGroupSize(const Napi::CallbackInfo& info) {
     builder.max_row_group_length(info[0].ToNumber().Int64Value());
     return info.Env().Undefined();
   }
 
 protected:
-  static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
-    switch (type) {
-    case FieldType::Type::INT32:
-      return parquet::ConvertedType::INT_32;
-
-    case FieldType::Type::INT64:
-      return parquet::ConvertedType::INT_64;
-
-    case FieldType::Type::TIMESTAMP_MICROS:
-      return parquet::ConvertedType::INT_64;
-
-    case FieldType::Type::TIMESTAMP_MILLIS:
-      return parquet::ConvertedType::INT_64;
-
-    case FieldType::Type::DATE32:
-      return parquet::ConvertedType::DATE;
-
-    case FieldType::Type::DOUBLE:
-      return parquet::ConvertedType::NONE;
-
-    case FieldType::Type::BOOLEAN:
-      return parquet::ConvertedType::NONE;
-
-    case FieldType::Type::UTF8:
-      return parquet::ConvertedType::UTF8;
-    }
-
-    // Execution only reaches here if you do something unsafe, but the compiler is complaining
-    return parquet::ConvertedType::UNDEFINED;
-  }
-
-  static parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
-    switch (type) {
-    case FieldType::Type::INT32:
-      return parquet::Type::INT32;
-
-    case FieldType::Type::INT64:
-      return parquet::Type::INT64;
-
-    case FieldType::Type::TIMESTAMP_MICROS:
-      return parquet::Type::INT64;
-
-    case FieldType::Type::TIMESTAMP_MILLIS:
-      return parquet::Type::INT64;
-
-    case FieldType::Type::DATE32:
-      return parquet::Type::INT32;
-
-    case FieldType::Type::DOUBLE:
-      return parquet::Type::DOUBLE;
-
-    case FieldType::Type::BOOLEAN:
-      return parquet::Type::BOOLEAN;
-
-    case FieldType::Type::UTF8:
-      return parquet::Type::BYTE_ARRAY;
-    }
-
-    // Execution only reaches here if you do something unsafe, but the compiler is complaining
-    return parquet::Type::UNDEFINED;
-  }
+  
 
 };
 

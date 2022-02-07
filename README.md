@@ -38,11 +38,11 @@ const schema = {
 
 const writer = new lib.ParquetWriter(schema, 'example-out.parquet')
 writer.open()
-writer.appendRow({
+writer.appendRowObject({
   field_0: 1,
   field_1: 'As a dict',
 })
-writer.appendRow([
+writer.appendRowArray([
   2,
   'As an array',
 ])
