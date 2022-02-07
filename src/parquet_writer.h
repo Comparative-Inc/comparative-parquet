@@ -8,19 +8,40 @@
 
 #include <vector>
 
+// Have to use an interim enum because some parquet types are weird
+// Also it makes it clear which types are supported, and eliminates the
+// need for exceptions on unsupported types.
+enum FieldType {
+  INT32,
+  INT64,
+  TIMESTAMP_MICROS,
+  TIMESTAMP_MILLIS,
+  DATE32,
+  DOUBLE,
+  BOOLEAN,
+  UTF8
+};
+
 struct Column {
   std::string key;
   parquet::Type::type type;
 };
 
 class ParquetWriter : public Napi::ObjectWrap<ParquetWriter> {
+protected:
+  std::string filepath;
+  std::shared_ptr<parquet::schema::GroupNode> schema;
+  parquet::WriterProperties::Builder builder;
+  parquet::StreamWriter os;
+  std::vector<Column> columns;
+
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function func =
       DefineClass(env,
         "ParquetWriter", {
-          InstanceMethod("appendRow",    &ParquetWriter::appendRow),
-          InstanceMethod("open", &ParquetWriter::open),
+          InstanceMethod("appendRow",       &ParquetWriter::appendRow),
+          InstanceMethod("open",            &ParquetWriter::open),
           InstanceMethod("setRowGroupSize", &ParquetWriter::setRowGroupSize)
         });
 
@@ -39,29 +60,30 @@ public:
   {
     auto env = info.Env();
     if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsString()) {
-      Napi::TypeError::New(env, "schema::Object, path::string expected").ThrowAsJavaScriptException();
+      Napi::TypeError::New(env, "schema:Object, path:string expected").ThrowAsJavaScriptException();
       return;
     }
 
     filepath = info[1].ToString().Utf8Value();
 
     // Build schema
-    auto schema_obj = info[0].As<Napi::Object>();
-    auto keys = schema_obj.GetPropertyNames();
+    auto schema = info[0].As<Napi::Object>();
+    auto keys = schema.GetPropertyNames();
     parquet::schema::NodeVector fields;
     for (uint32_t i = 0; i < keys.Length(); i++) {
       auto name = keys.Get(i).ToString().Utf8Value();
-      auto type_name = schema_obj.Get(name).ToObject().Get("type").ToString().Utf8Value();
-      auto converted_type = convertedTypeFromString(type_name);
-      auto logical_type = logicalTypeFromString(type_name);
-      columns.push_back(Column{name, logical_type});
+      auto fieldType = static_cast<FieldType>(
+        schema.Get(name).ToObject().Get("type").ToNumber().Int32Value());
+      auto convertedType = ConvertedTypeFromFieldType(fieldType);
+      auto logicalType = LogicalTypeFromFieldType(fieldType);
+      columns.push_back(Column{name, logicalType});
       fields.push_back(parquet::schema::PrimitiveNode::Make(
         name,
         parquet::Repetition::OPTIONAL,
-        logical_type,
-        converted_type));
+        logicalType,
+        convertedType));
     }
-    schema = std::static_pointer_cast<parquet::schema::GroupNode>(
+    this->schema = std::static_pointer_cast<parquet::schema::GroupNode>(
       parquet::schema::GroupNode::Make("schema", parquet::Repetition::OPTIONAL, fields)
     );
   }
@@ -69,7 +91,7 @@ public:
   Napi::Value appendRow(const Napi::CallbackInfo& info) {
     auto env = info.Env();
     if (info.Length() < 1 || !info[0].IsObject()) {
-      Napi::TypeError::New(env, "row::Object expected").ThrowAsJavaScriptException();
+      Napi::TypeError::New(env, "row:Object expected").ThrowAsJavaScriptException();
       return Napi::Boolean::New(env, false);
     }
 
@@ -110,21 +132,27 @@ public:
   }
 
   Napi::Value open(const Napi::CallbackInfo& info) {
+    auto env = info.Env();
     // Open file
-    std::shared_ptr<arrow::io::FileOutputStream> out_file;
-    PARQUET_ASSIGN_OR_THROW(
-      out_file,
-      arrow::io::FileOutputStream::Open(filepath)
-    );
+    std::shared_ptr<arrow::io::FileOutputStream> outfile;
+    try {
+      PARQUET_ASSIGN_OR_THROW(
+        outfile,
+        arrow::io::FileOutputStream::Open(filepath)
+      );
+    } catch (const parquet::ParquetException& e) {
+      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+      return Napi::Boolean::New(env, false);
+    }
 
     // Setup output stream
     os = parquet::StreamWriter {parquet::ParquetFileWriter::Open(
-      out_file,
+      outfile,
       schema,
       builder.build()
     )};
 
-    return Napi::Boolean::New(info.Env(), true);
+    return Napi::Boolean::New(env, true);
   }
 
   Napi::Value setRowGroupSize(const Napi::CallbackInfo& info) {
@@ -133,56 +161,66 @@ public:
   }
 
 protected:
-
-  std::string filepath;
-  std::shared_ptr<parquet::schema::GroupNode> schema;
-  parquet::WriterProperties::Builder builder;
-  parquet::StreamWriter os;
-  std::vector<Column> columns;
-
-  parquet::ConvertedType::type convertedTypeFromString(const std::string& type) {
-    // Maybe it would be faster if it hashed the string and used a switch statement
-    if (type == "INT32") {
+  static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType type) {
+    switch (type) {
+    case FieldType::INT32:
       return parquet::ConvertedType::INT_32;
-    } else if (type == "INT64") {
+
+    case FieldType::INT64:
       return parquet::ConvertedType::INT_64;
-    } else if (type == "TIMESTAMP_MICROS") {
-      return parquet::ConvertedType::INT_64;
-    } else if (type == "TIMESTAMP_MILLIS") {
-      return parquet::ConvertedType::INT_64;
-    } else if (type == "DATE32") {
-      return parquet::ConvertedType::INT_32;
-    } else if (type == "DOUBLE") {
-      return parquet::ConvertedType::NONE; // Looks weird but is correct
-    } else if (type == "BOOLEAN") {
-      return parquet::ConvertedType::NONE; // ditto
-    } else if (type == "UTF8") {
+
+    case FieldType::TIMESTAMP_MICROS:
+      return parquet::ConvertedType::TIMESTAMP_MICROS;
+
+    case FieldType::TIMESTAMP_MILLIS:
+      return parquet::ConvertedType::TIMESTAMP_MILLIS;
+
+    case FieldType::DATE32:
+      return parquet::ConvertedType::DATE;
+
+    case FieldType::DOUBLE:
+      return parquet::ConvertedType::NONE;
+
+    case FieldType::BOOLEAN:
+      return parquet::ConvertedType::NONE;
+
+    case FieldType::UTF8:
       return parquet::ConvertedType::UTF8;
     }
 
-    throw std::invalid_argument("Unsupported parquet field type");
+    // Execution only reaches here if you do something unsafe, but the compiler is complaining
+    return parquet::ConvertedType::UNDEFINED;
   }
 
-  parquet::Type::type logicalTypeFromString(const std::string& type) {
-    if (type == "INT32") {
+  static parquet::Type::type LogicalTypeFromFieldType(FieldType type) {
+    switch (type) {
+    case FieldType::INT32:
       return parquet::Type::INT32;
-    } else if (type == "INT64") {
+
+    case FieldType::INT64:
       return parquet::Type::INT64;
-    } else if (type == "TIMESTAMP_MICROS") {
+
+    case FieldType::TIMESTAMP_MICROS:
       return parquet::Type::INT64;
-    } else if (type == "TIMESTAMP_MILLIS") {
+
+    case FieldType::TIMESTAMP_MILLIS:
       return parquet::Type::INT64;
-    } else if (type == "DATE32") {
+
+    case FieldType::DATE32:
       return parquet::Type::INT32;
-    } else if (type == "DOUBLE") {
+
+    case FieldType::DOUBLE:
       return parquet::Type::DOUBLE;
-    } else if (type == "BOOLEAN") {
+
+    case FieldType::BOOLEAN:
       return parquet::Type::BOOLEAN;
-    } else if (type == "UTF8") {
+
+    case FieldType::UTF8:
       return parquet::Type::BYTE_ARRAY;
     }
 
-    throw std::invalid_argument("Unsupported parquet field type");
+    // Execution only reaches here if you do something unsafe, but the compiler is complaining
+    return parquet::Type::UNDEFINED;
   }
 
 };

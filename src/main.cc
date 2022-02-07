@@ -4,7 +4,8 @@
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
   ParquetWriter::Init(env, exports);
-  return ParquetReader::Init(env, exports);
+  ParquetReader::Init(env, exports);
+  return exports;
 }
 
 NODE_API_MODULE(addon, InitAll)
