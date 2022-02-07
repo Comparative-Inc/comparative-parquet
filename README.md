@@ -29,18 +29,20 @@ were a single file.
 
 ```javascript
 const parquet = require('comparative-parquet')
+const type = new parquet.Type()
 
 const schema = {
-  field_0: { type: 'INT64' },
-  field_1: { type: 'UTF8' },
+  field_0: { type: type.INT32 },
+  field_1: { type: type.UTF8 },
 }
 
-const writer = new parquet.ParquetWriter(schema, 'example-out.parquet')
+const writer = new lib.ParquetWriter(schema, 'example-out.parquet')
 writer.open()
 writer.appendRow({
   field_0: 1,
   field_1: 'Hello World!',
 })
+writer.close()
 ```
 
 ### Development

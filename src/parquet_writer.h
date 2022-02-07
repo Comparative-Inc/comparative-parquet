@@ -8,19 +8,7 @@
 
 #include <vector>
 
-// Have to use an interim enum because some parquet types are weird
-// Also it makes it clear which types are supported, and eliminates the
-// need for exceptions on unsupported types.
-enum FieldType {
-  INT32,
-  INT64,
-  TIMESTAMP_MICROS,
-  TIMESTAMP_MILLIS,
-  DATE32,
-  DOUBLE,
-  BOOLEAN,
-  UTF8
-};
+#include "field_type.h"
 
 struct Column {
   std::string key;
@@ -36,13 +24,16 @@ protected:
   std::vector<Column> columns;
 
 public:
+  
+
+public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
     Napi::Function func =
       DefineClass(env,
         "ParquetWriter", {
           InstanceMethod("appendRow",       &ParquetWriter::appendRow),
           InstanceMethod("open",            &ParquetWriter::open),
-          InstanceMethod("setRowGroupSize", &ParquetWriter::setRowGroupSize)
+          InstanceMethod("setRowGroupSize", &ParquetWriter::setRowGroupSize),
         });
 
     auto constructor = new Napi::FunctionReference();
@@ -72,7 +63,7 @@ public:
     parquet::schema::NodeVector fields;
     for (uint32_t i = 0; i < keys.Length(); i++) {
       auto name = keys.Get(i).ToString().Utf8Value();
-      auto fieldType = static_cast<FieldType>(
+      auto fieldType = static_cast<FieldType::Type>(
         schema.Get(name).ToObject().Get("type").ToNumber().Int32Value());
       auto convertedType = ConvertedTypeFromFieldType(fieldType);
       auto logicalType = LogicalTypeFromFieldType(fieldType);
@@ -161,30 +152,30 @@ public:
   }
 
 protected:
-  static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType type) {
+  static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
     switch (type) {
-    case FieldType::INT32:
+    case FieldType::Type::INT32:
       return parquet::ConvertedType::INT_32;
 
-    case FieldType::INT64:
+    case FieldType::Type::INT64:
       return parquet::ConvertedType::INT_64;
 
-    case FieldType::TIMESTAMP_MICROS:
-      return parquet::ConvertedType::TIMESTAMP_MICROS;
+    case FieldType::Type::TIMESTAMP_MICROS:
+      return parquet::ConvertedType::INT_64;
 
-    case FieldType::TIMESTAMP_MILLIS:
-      return parquet::ConvertedType::TIMESTAMP_MILLIS;
+    case FieldType::Type::TIMESTAMP_MILLIS:
+      return parquet::ConvertedType::INT_64;
 
-    case FieldType::DATE32:
+    case FieldType::Type::DATE32:
       return parquet::ConvertedType::DATE;
 
-    case FieldType::DOUBLE:
+    case FieldType::Type::DOUBLE:
       return parquet::ConvertedType::NONE;
 
-    case FieldType::BOOLEAN:
+    case FieldType::Type::BOOLEAN:
       return parquet::ConvertedType::NONE;
 
-    case FieldType::UTF8:
+    case FieldType::Type::UTF8:
       return parquet::ConvertedType::UTF8;
     }
 
@@ -192,30 +183,30 @@ protected:
     return parquet::ConvertedType::UNDEFINED;
   }
 
-  static parquet::Type::type LogicalTypeFromFieldType(FieldType type) {
+  static parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
     switch (type) {
-    case FieldType::INT32:
+    case FieldType::Type::INT32:
       return parquet::Type::INT32;
 
-    case FieldType::INT64:
+    case FieldType::Type::INT64:
       return parquet::Type::INT64;
 
-    case FieldType::TIMESTAMP_MICROS:
+    case FieldType::Type::TIMESTAMP_MICROS:
       return parquet::Type::INT64;
 
-    case FieldType::TIMESTAMP_MILLIS:
+    case FieldType::Type::TIMESTAMP_MILLIS:
       return parquet::Type::INT64;
 
-    case FieldType::DATE32:
+    case FieldType::Type::DATE32:
       return parquet::Type::INT32;
 
-    case FieldType::DOUBLE:
+    case FieldType::Type::DOUBLE:
       return parquet::Type::DOUBLE;
 
-    case FieldType::BOOLEAN:
+    case FieldType::Type::BOOLEAN:
       return parquet::Type::BOOLEAN;
 
-    case FieldType::UTF8:
+    case FieldType::Type::UTF8:
       return parquet::Type::BYTE_ARRAY;
     }
 
