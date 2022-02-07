@@ -6,8 +6,7 @@
 // Have to use an interim enum because some parquet types are weird
 // Also it makes it clear which types are supported, and eliminates the
 // need for exceptions on unsupported types.
-class FieldType : public Napi::ObjectWrap<FieldType>{
-public:
+namespace FieldType {
   enum class Type {
     INT32,
     INT64,
@@ -19,30 +18,23 @@ public:
     UTF8
   };
 
-public:
-  static Napi::Object Init(Napi::Env env, Napi::Object exports) {
-    Napi::Function func =
-      DefineClass(env,
-        "FieldType", {
-          InstanceValue("INT32", Napi::Number::New(env, static_cast<double>(Type::INT32))),
-          InstanceValue("INT64", Napi::Number::New(env, static_cast<double>(Type::INT64))),
-          InstanceValue("TIMESTAMP_MICROS", Napi::Number::New(env, static_cast<double>(Type::TIMESTAMP_MICROS))),
-          InstanceValue("TIMESTAMP_MILLIS", Napi::Number::New(env, static_cast<double>(Type::TIMESTAMP_MILLIS))),
-          InstanceValue("DATE32", Napi::Number::New(env, static_cast<double>(Type::DATE32))),
-          InstanceValue("DOUBLE", Napi::Number::New(env, static_cast<double>(Type::DOUBLE))),
-          InstanceValue("BOOLEAN", Napi::Number::New(env, static_cast<double>(Type::BOOLEAN))),
-          InstanceValue("UTF8", Napi::Number::New(env, static_cast<double>(Type::UTF8)))
-        });
+  inline Napi::Object Init(Napi::Env env, Napi::Object exports) {
+    using Napi::Object;
 
-    auto constructor = new Napi::FunctionReference();
-    *constructor = Napi::Persistent(func);
-    env.SetInstanceData(constructor);
+    Object type = Object::New(env);
+    type.Set("BOOLEAN",          Napi::Number::New(env, static_cast<double>(Type::BOOLEAN))),
+    type.Set("INT32",            Napi::Number::New(env, static_cast<double>(Type::INT32))),
+    type.Set("INT64",            Napi::Number::New(env, static_cast<double>(Type::INT64))),
+    type.Set("DOUBLE",           Napi::Number::New(env, static_cast<double>(Type::DOUBLE))),
+    type.Set("DATE32",           Napi::Number::New(env, static_cast<double>(Type::DATE32))),
+    type.Set("TIMESTAMP_MICROS", Napi::Number::New(env, static_cast<double>(Type::TIMESTAMP_MICROS))),
+    type.Set("TIMESTAMP_MILLIS", Napi::Number::New(env, static_cast<double>(Type::TIMESTAMP_MILLIS))),
+    type.Set("UTF8",             Napi::Number::New(env, static_cast<double>(Type::UTF8)));
 
-    exports.Set("FieldType", func);
+    exports.Set("FieldType", type);
+
     return exports;
   }
-
-public:
-  FieldType(const Napi::CallbackInfo& info) : Napi::ObjectWrap<FieldType>(info) { }
 };
+
 #endif
