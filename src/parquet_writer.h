@@ -25,7 +25,7 @@ static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type t
     return parquet::ConvertedType::INT_64;
 
   case FieldType::Type::DATE32:
-    return parquet::ConvertedType::DATE;
+    return parquet::ConvertedType::INT_32;
 
   case FieldType::Type::DOUBLE:
     return parquet::ConvertedType::NONE;
