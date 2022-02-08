@@ -3,7 +3,7 @@
  */
 
 const lib = require('../lib')
-const type = new lib.Type()
+const type = lib.type
 
 const schema = {
   field_0: { type: type.INT32 },

@@ -29,7 +29,7 @@ were a single file.
 
 ```javascript
 const parquet = require('comparative-parquet')
-const type = new parquet.Type()
+const type = parquet.type
 
 const schema = {
   field_0: { type: type.INT32 },
