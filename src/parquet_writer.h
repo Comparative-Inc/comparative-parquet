@@ -101,6 +101,7 @@ protected:
   std::string filepath;
   ArrowSchemaPtr schema;
   std::vector<Column> columns;
+  std::shared_ptr<arrow::io::FileOutputStream> outfile;
 
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
@@ -110,6 +111,7 @@ public:
           InstanceMethod("appendRowArray",       &ParquetWriter::AppendRowArray),
           InstanceMethod("appendRowObject",      &ParquetWriter::AppendRowObject),
           InstanceMethod("open",                 &ParquetWriter::Open),
+          InstanceMethod("close",                &ParquetWriter::Close),
           InstanceMethod("setRowGroupSize",      &ParquetWriter::SetRowGroupSize),
         });
 
@@ -240,15 +242,44 @@ public:
   Napi::Value AppendRowObject(const Napi::CallbackInfo& info) {
     auto env = info.Env();
     // TODO
-    
+
     return env.Undefined();
   }
 
   Napi::Value Open(const Napi::CallbackInfo& info) {
     auto env = info.Env();
-    // TODO
+
+    try{
+      PARQUET_ASSIGN_OR_THROW(
+        outfile,
+        arrow::io::FileOutputStream::Open(filepath));
+    } catch (const parquet::ParquetException& e) {
+      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
 
     return Napi::Boolean::New(env, true);
+  }
+
+  Napi::Value Close(const Napi::CallbackInfo& info) {
+    auto env = info.Env();
+    arrow::ArrayVector arrays;
+    for (auto& i : columns) {
+      ArrowArrayPtr out;
+      i.builder->Finish(&out);
+      arrays.push_back(out);
+    }
+    auto table = arrow::Table::Make(schema, arrays);
+
+    try {
+      PARQUET_THROW_NOT_OK(
+        parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, 3));
+    } catch (const parquet::ParquetException& e) {
+      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    return env.Undefined();
   }
 
   Napi::Value SetRowGroupSize(const Napi::CallbackInfo& info) {
