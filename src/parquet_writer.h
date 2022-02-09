@@ -3,90 +3,104 @@
 
 #include <napi.h>
 
+#include <arrow/builder.h>
 #include <parquet/arrow/writer.h>
-#include <parquet/stream_writer.h>
 
 #include <vector>
 
-#include "field_type.h"
-
-static std::shared_ptr<const parquet::LogicalType> LogicalTypeFromFieldType(FieldType::Type type) {
-  switch (type) {
-  case FieldType::Type::INT32:
-    return parquet::LogicalType::Int(32, true);
-
-  case FieldType::Type::INT64:
-    return parquet::LogicalType::Int(64, true);
-
-  case FieldType::Type::TIMESTAMP_MICROS:
-    return parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::MICROS, false, true);
-
-  case FieldType::Type::TIMESTAMP_MILLIS:
-    return parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::MILLIS, false, true);
-
-  case FieldType::Type::DATE32:
-    return parquet::LogicalType::Date();
-
-  case FieldType::Type::DOUBLE:
-    return parquet::LogicalType::None();
-
-  case FieldType::Type::BOOLEAN:
-    return parquet::LogicalType::None();
-
-  case FieldType::Type::UTF8:
-    return parquet::LogicalType::String();
-  }
-
-  // Execution only reaches here if you do something unsafe, but the compiler is complaining
-  return parquet::LogicalType::None();
+inline static ArrowFieldPtr MakeField(const std::string& name, std::shared_ptr<arrow::DataType> type) {
+  return std::make_shared<arrow::Field>(name, type);
 }
 
-static parquet::Type::type PrimativeTypeFromFieldType(FieldType::Type type) {
+static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Object& obj, const arrow::Type::type type) {
   switch (type) {
-  case FieldType::Type::INT32:
-    return parquet::Type::INT32;
+  case arrow::Type::type::BOOL:
+    return MakeField(name, arrow::boolean());
 
-  case FieldType::Type::INT64:
-    return parquet::Type::INT64;
+  case arrow::Type::type::UINT8:
+    return MakeField(name, arrow::uint8());
 
-  case FieldType::Type::TIMESTAMP_MICROS:
-    return parquet::Type::INT64;
+  case arrow::Type::type::INT8:
+    return MakeField(name, arrow::int8());
 
-  case FieldType::Type::TIMESTAMP_MILLIS:
-    return parquet::Type::INT64;
+  case arrow::Type::type::UINT16:
+    return MakeField(name, arrow::uint16());
 
-  case FieldType::Type::DATE32:
-    return parquet::Type::INT32;
+  case arrow::Type::type::INT16:
+    return MakeField(name, arrow::int16());
 
-  case FieldType::Type::DOUBLE:
-    return parquet::Type::DOUBLE;
+  case arrow::Type::type::UINT32:
+    return MakeField(name, arrow::uint32());
 
-  case FieldType::Type::BOOLEAN:
-    return parquet::Type::BOOLEAN;
+  case arrow::Type::type::INT32:
+    return MakeField(name, arrow::int32());
 
-  case FieldType::Type::UTF8:
-    return parquet::Type::BYTE_ARRAY;
+  case arrow::Type::type::INT64:
+    return MakeField(name, arrow::int64());
+
+  case arrow::Type::type::FLOAT:
+    return MakeField(name, arrow::float32());
+
+  case arrow::Type::type::DOUBLE:
+    return MakeField(name, arrow::float64());
+
+  case arrow::Type::type::STRING:
+    return MakeField(name, arrow::utf8());
+
+  case arrow::Type::type::DATE32:
+    return MakeField(name, arrow::date32());
+
+  case arrow::Type::type::TIMESTAMP: {
+    auto unit = static_cast<arrow::TimeUnit::type>(obj.Get("unit").ToNumber().Int32Value());
+    return MakeField(name, arrow::timestamp(unit));
   }
 
-  // Execution only reaches here if you do something unsafe, but the compiler is complaining
-  return parquet::Type::UNDEFINED;
+  case arrow::Type::type::TIME32: {
+    auto unit = static_cast<arrow::TimeUnit::type>(obj.Get("unit").ToNumber().Int32Value());
+    return MakeField(name, arrow::time32(unit));
+  }
+
+  case arrow::Type::type::TIME64: {
+    auto unit = static_cast<arrow::TimeUnit::type>(obj.Get("unit").ToNumber().Int32Value());
+    return MakeField(name, arrow::time64(unit));
+  }
+
+  default:
+    // Should only happen if JS users use a number instead of the enum
+    throw std::runtime_error("Invalid type id");
+  }
+}
+
+inline static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Object& obj) {
+  return NapiObjToArrowField(name, obj, static_cast<arrow::Type::type>(obj.Get("type").ToNumber().Int32Value()));
 }
 
 struct Column {
   std::string key;
-  FieldType::Type type;
+  arrow::Type::type type;
+  std::unique_ptr<arrow::ArrayBuilder> builder;
 };
+
+template <typename T>
+inline static void AppendScalar(Column& column, const T& value) {
+  auto result = arrow::MakeScalar(column.builder->type(), value);
+  if (result.ok()) {
+    column.builder->AppendScalar(*result.ValueOrDie());
+  } else {
+    throw std::runtime_error("Unable to make scalar from input");
+  }
+}
+
+template <>
+void AppendScalar<std::string>(Column& column, const std::string& value) {
+  column.builder->AppendScalar(arrow::StringScalar(value));
+}
 
 class ParquetWriter : public Napi::ObjectWrap<ParquetWriter> {
 protected:
   std::string filepath;
-  std::shared_ptr<parquet::schema::GroupNode> schema;
-  parquet::WriterProperties::Builder builder;
-  parquet::StreamWriter os;
+  ArrowSchemaPtr schema;
   std::vector<Column> columns;
-
-public:
-  
 
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
@@ -110,7 +124,6 @@ public:
 public:
   ParquetWriter(const Napi::CallbackInfo& info)
     : Napi::ObjectWrap<ParquetWriter>(info)
-    , builder()
   {
     auto env = info.Env();
     if (info.Length() < 2 || !info[0].IsObject() || !info[1].IsString()) {
@@ -123,23 +136,88 @@ public:
     // Build schema
     auto schema = info[0].As<Napi::Object>();
     auto keys = schema.GetPropertyNames();
-    parquet::schema::NodeVector fields;
+    arrow::FieldVector fields;
     for (uint32_t i = 0; i < keys.Length(); i++) {
       auto name = keys.Get(i).ToString().Utf8Value();
-      auto fieldType = static_cast<FieldType::Type>(
-        schema.Get(name).ToObject().Get("type").ToNumber().Int32Value());
-      auto logicalType = LogicalTypeFromFieldType(fieldType);
-      auto primativeType = PrimativeTypeFromFieldType(fieldType);
-      columns.push_back(Column{name, fieldType});
-      fields.push_back(parquet::schema::PrimitiveNode::Make(
-        name,
-        parquet::Repetition::OPTIONAL,
-        logicalType,
-        primativeType));
+      auto fieldObj = schema.Get(name).ToObject();
+      auto type = static_cast<arrow::Type::type>(fieldObj.Get("type").ToNumber().Int32Value());
+
+      try {
+        fields.push_back(NapiObjToArrowField(name, fieldObj, type));
+      } catch (const std::runtime_error& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return;
+      }
+
+      std::unique_ptr<arrow::ArrayBuilder> builder;
+
+      arrow::MakeBuilder(arrow::default_memory_pool(), fields.back()->type(), &builder);
+      columns.push_back(Column{std::move(name), type, std::move(builder)});
     }
-    this->schema = std::static_pointer_cast<parquet::schema::GroupNode>(
-      parquet::schema::GroupNode::Make("schema", parquet::Repetition::OPTIONAL, fields)
-    );
+
+    this->schema = arrow::schema(fields);
+  }
+
+  void AppendRow(const Napi::Array& row) {
+    if (columns.size() != row.Length()) {
+      throw std::runtime_error("Number of columns does not match schema");
+    }
+
+    for (size_t i = 0; i < columns.size(); i++) {
+      switch (columns[i].type) {
+      case arrow::Type::type::BOOL:
+        AppendScalar(columns[i], row.Get(i).ToBoolean().Value());
+        break;
+
+      case arrow::Type::type::UINT8:
+        AppendScalar(columns[i], static_cast<uint8_t>(row.Get(i).ToNumber().Uint32Value()));
+        break;
+
+      case arrow::Type::type::INT8:
+        AppendScalar(columns[i], static_cast<int8_t>(row.Get(i).ToNumber().Uint32Value()));
+        break;
+
+      case arrow::Type::type::UINT16:
+        AppendScalar(columns[i], static_cast<uint16_t>(row.Get(i).ToNumber().Uint32Value()));
+        break;
+
+      case arrow::Type::type::INT16:
+        AppendScalar(columns[i], static_cast<int16_t>(row.Get(i).ToNumber().Uint32Value()));
+        break;
+
+      case arrow::Type::type::UINT32:
+        AppendScalar(columns[i], row.Get(i).ToNumber().Uint32Value());
+        break;
+
+      case arrow::Type::type::INT32:
+      case arrow::Type::type::DATE32:
+      case arrow::Type::type::TIME32:
+        AppendScalar(columns[i], row.Get(i).ToNumber().Int32Value());
+        break;
+
+      case arrow::Type::type::INT64:
+      case arrow::Type::type::TIMESTAMP:
+      case arrow::Type::type::TIME64:
+        AppendScalar(columns[i], row.Get(i).ToNumber().Int64Value());
+        break;
+
+      case arrow::Type::type::FLOAT:
+        AppendScalar(columns[i], row.Get(i).ToNumber().FloatValue());
+        break;
+
+      case arrow::Type::type::DOUBLE:
+        AppendScalar(columns[i], row.Get(i).ToNumber().DoubleValue());
+        break;
+
+      case arrow::Type::type::STRING:
+        AppendScalar(columns[i], row.Get(i).ToString().Utf8Value());
+        break;
+
+      default:
+        // Should only happen if a JS user isn't using the enum
+        throw std::runtime_error("Data type not supported");
+      }
+    }
   }
 
   Napi::Value AppendRowArray(const Napi::CallbackInfo& info) {
@@ -150,40 +228,8 @@ public:
     }
 
     try {
-      auto row = info[0].As<Napi::Array>();
-      for (size_t i = 0; i < columns.size() && i < row.Length(); i++) {
-        switch (columns[i].type) {
-        case FieldType::Type::DATE32:
-        case FieldType::Type::INT32:
-          os << static_cast<int>(row.Get(i).ToNumber().Int32Value());
-          break;
-
-        case FieldType::Type::TIMESTAMP_MICROS:
-        case FieldType::Type::TIMESTAMP_MILLIS:
-        case FieldType::Type::INT64:
-          os << row.Get(i).ToNumber().Int64Value();
-          break;
-
-        case FieldType::Type::DOUBLE:
-          os << row.Get(i).ToNumber().DoubleValue();
-          break;
-
-        case FieldType::Type::BOOLEAN:
-          os << row.Get(i).ToBoolean().Value();
-          break;
-
-        case FieldType::Type::UTF8:
-          os << row.Get(i).ToString().Utf8Value();
-          break;
-
-        default:
-          os << "null";
-        }
-      }
-
-      os << parquet::EndRow;
-
-    } catch (const parquet::ParquetException& e) {
+      AppendRow(info[0].As<Napi::Array>());
+    } catch (const std::runtime_error& e) {
       Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
       return env.Undefined();
     }
@@ -193,78 +239,20 @@ public:
 
   Napi::Value AppendRowObject(const Napi::CallbackInfo& info) {
     auto env = info.Env();
-    if (info.Length() < 1 || !info[0].IsObject()) {
-      Napi::TypeError::New(env, "row:Object expected").ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-    auto row = info[0].As<Napi::Object>();
-    try {
-      for (auto& i : columns) {
-        switch (i.type) {
-        case FieldType::Type::DATE32:
-        case FieldType::Type::INT32:
-          os << row.Get(i.key).ToNumber().Int32Value();
-          break;
-
-        case FieldType::Type::TIMESTAMP_MICROS:
-        case FieldType::Type::TIMESTAMP_MILLIS:
-        case FieldType::Type::INT64:
-          os << row.Get(i.key).ToNumber().Int64Value();
-          break;
-
-        case FieldType::Type::DOUBLE:
-          os << row.Get(i.key).ToNumber().DoubleValue();
-          break;
-
-        case FieldType::Type::BOOLEAN:
-          os << row.Get(i.key).ToBoolean().Value();
-          break;
-
-        case FieldType::Type::UTF8:
-          os << row.Get(i.key).ToString().Utf8Value();
-          break;
-
-        default:
-          os << "null";
-        }
-      }
-
-      os << parquet::EndRow;
-      
-    } catch (const parquet::ParquetException& e) {
-      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-
+    // TODO
+    
     return env.Undefined();
   }
 
   Napi::Value Open(const Napi::CallbackInfo& info) {
     auto env = info.Env();
-    // Open file
-    std::shared_ptr<arrow::io::FileOutputStream> outfile;
-    try {
-      PARQUET_ASSIGN_OR_THROW(
-        outfile,
-        arrow::io::FileOutputStream::Open(filepath)
-      );
-    } catch (const parquet::ParquetException& e) {
-      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-
-    // Setup output stream
-    os = parquet::StreamWriter {parquet::ParquetFileWriter::Open(
-      outfile,
-      schema,
-      builder.build()
-    )};
+    // TODO
 
     return Napi::Boolean::New(env, true);
   }
 
   Napi::Value SetRowGroupSize(const Napi::CallbackInfo& info) {
-    builder.max_row_group_length(info[0].ToNumber().Int64Value());
+    // TODO
     return info.Env().Undefined();
   }
 
