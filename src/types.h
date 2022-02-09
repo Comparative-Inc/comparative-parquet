@@ -6,6 +6,7 @@
 #include <arrow/type_fwd.h>
 
 // Don't use these macros outside of this file
+// They assume the existense of a Napi::Env env variable
 #define ENUMSET(name, enum)   Set(name, Napi::Number::New(env, static_cast<double>(enum)))
 #define F_ENUMSET(name, enum) type.ENUMSET(name, arrow::Type::type::enum)
 #define T_ENUMSET(name, enum) timeUnit.ENUMSET(name, arrow::TimeUnit::type::enum)
@@ -61,6 +62,10 @@ namespace Types {
     // F_ENUMSET("LARGE_BINARY",             LARGE_BINARY),             // ...
     // F_ENUMSET("LARGE_LIST",               LARGE_LIST),               // ...
     // F_ENUMSET("INTERVAL_MONTH_DAY_NANO",  INTERVAL_MONTH_DAY_NANO);  // Not currently supported by parquet
+    
+    // Backwards compatability
+    type.Set("TIMESTAMP_MICROS", 1000); // These are set to arbitrarily large values so they won't conflict
+    type.Set("TIMESTAMP_MILLIS", 1001); // with actual enum values.
 
     exports.Set("FieldType", type);
 
