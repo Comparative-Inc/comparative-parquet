@@ -10,38 +10,38 @@
 
 #include "field_type.h"
 
-static parquet::ConvertedType::type ConvertedTypeFromFieldType(FieldType::Type type) {
+static std::shared_ptr<const parquet::LogicalType> LogicalTypeFromFieldType(FieldType::Type type) {
   switch (type) {
   case FieldType::Type::INT32:
-    return parquet::ConvertedType::INT_32;
+    return parquet::LogicalType::Int(32, true);
 
   case FieldType::Type::INT64:
-    return parquet::ConvertedType::INT_64;
+    return parquet::LogicalType::Int(64, true);
 
   case FieldType::Type::TIMESTAMP_MICROS:
-    return parquet::ConvertedType::INT_64;
+    return parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::MICROS, false, true);
 
   case FieldType::Type::TIMESTAMP_MILLIS:
-    return parquet::ConvertedType::INT_64;
+    return parquet::LogicalType::Timestamp(false, parquet::LogicalType::TimeUnit::MILLIS, false, true);
 
   case FieldType::Type::DATE32:
-    return parquet::ConvertedType::INT_32;
+    return parquet::LogicalType::Date();
 
   case FieldType::Type::DOUBLE:
-    return parquet::ConvertedType::NONE;
+    return parquet::LogicalType::None();
 
   case FieldType::Type::BOOLEAN:
-    return parquet::ConvertedType::NONE;
+    return parquet::LogicalType::None();
 
   case FieldType::Type::UTF8:
-    return parquet::ConvertedType::UTF8;
+    return parquet::LogicalType::String();
   }
 
   // Execution only reaches here if you do something unsafe, but the compiler is complaining
-  return parquet::ConvertedType::UNDEFINED;
+  return parquet::LogicalType::None();
 }
 
-static parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
+static parquet::Type::type PrimativeTypeFromFieldType(FieldType::Type type) {
   switch (type) {
   case FieldType::Type::INT32:
     return parquet::Type::INT32;
@@ -74,7 +74,7 @@ static parquet::Type::type LogicalTypeFromFieldType(FieldType::Type type) {
 
 struct Column {
   std::string key;
-  parquet::Type::type type;
+  FieldType::Type type;
 };
 
 class ParquetWriter : public Napi::ObjectWrap<ParquetWriter> {
@@ -128,14 +128,14 @@ public:
       auto name = keys.Get(i).ToString().Utf8Value();
       auto fieldType = static_cast<FieldType::Type>(
         schema.Get(name).ToObject().Get("type").ToNumber().Int32Value());
-      auto convertedType = ConvertedTypeFromFieldType(fieldType);
       auto logicalType = LogicalTypeFromFieldType(fieldType);
-      columns.push_back(Column{name, logicalType});
+      auto primativeType = PrimativeTypeFromFieldType(fieldType);
+      columns.push_back(Column{name, fieldType});
       fields.push_back(parquet::schema::PrimitiveNode::Make(
         name,
         parquet::Repetition::OPTIONAL,
         logicalType,
-        convertedType));
+        primativeType));
     }
     this->schema = std::static_pointer_cast<parquet::schema::GroupNode>(
       parquet::schema::GroupNode::Make("schema", parquet::Repetition::OPTIONAL, fields)
@@ -153,27 +153,26 @@ public:
       auto row = info[0].As<Napi::Array>();
       for (size_t i = 0; i < columns.size() && i < row.Length(); i++) {
         switch (columns[i].type) {
-        case parquet::Type::INT32:
-          os << row.Get(i).ToNumber().Int32Value();
+        case FieldType::Type::DATE32:
+        case FieldType::Type::INT32:
+          os << static_cast<int>(row.Get(i).ToNumber().Int32Value());
           break;
 
-        case parquet::Type::INT64:
+        case FieldType::Type::TIMESTAMP_MICROS:
+        case FieldType::Type::TIMESTAMP_MILLIS:
+        case FieldType::Type::INT64:
           os << row.Get(i).ToNumber().Int64Value();
           break;
 
-        case parquet::Type::FLOAT:
-          os << row.Get(i).ToNumber().FloatValue();
-          break;
-
-        case parquet::Type::DOUBLE:
+        case FieldType::Type::DOUBLE:
           os << row.Get(i).ToNumber().DoubleValue();
           break;
 
-        case parquet::Type::BOOLEAN:
+        case FieldType::Type::BOOLEAN:
           os << row.Get(i).ToBoolean().Value();
           break;
 
-        case parquet::Type::BYTE_ARRAY:
+        case FieldType::Type::UTF8:
           os << row.Get(i).ToString().Utf8Value();
           break;
 
@@ -202,27 +201,26 @@ public:
     try {
       for (auto& i : columns) {
         switch (i.type) {
-        case parquet::Type::INT32:
+        case FieldType::Type::DATE32:
+        case FieldType::Type::INT32:
           os << row.Get(i.key).ToNumber().Int32Value();
           break;
 
-        case parquet::Type::INT64:
+        case FieldType::Type::TIMESTAMP_MICROS:
+        case FieldType::Type::TIMESTAMP_MILLIS:
+        case FieldType::Type::INT64:
           os << row.Get(i.key).ToNumber().Int64Value();
           break;
 
-        case parquet::Type::FLOAT:
-          os << row.Get(i.key).ToNumber().FloatValue();
-          break;
-
-        case parquet::Type::DOUBLE:
+        case FieldType::Type::DOUBLE:
           os << row.Get(i.key).ToNumber().DoubleValue();
           break;
 
-        case parquet::Type::BOOLEAN:
+        case FieldType::Type::BOOLEAN:
           os << row.Get(i.key).ToBoolean().Value();
           break;
 
-        case parquet::Type::BYTE_ARRAY:
+        case FieldType::Type::UTF8:
           os << row.Get(i.key).ToString().Utf8Value();
           break;
 
