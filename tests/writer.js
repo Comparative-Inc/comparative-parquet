@@ -14,6 +14,7 @@ const schema = {
   int16: { type: type.INT16},
   uint32: { type: type.UINT32 },
   int32: { type: type.INT32 },
+  uint64: { type: type.UINT64 },
   int64: { type: type.INT64 },
   float: { type: type.FLOAT },
   double: { type: type.DOUBLE },
@@ -43,6 +44,7 @@ writer.appendRow([
   4,
   5,
   6,
+  1000n,
   7,
   1.0,
   2.0,
@@ -50,7 +52,7 @@ writer.appendRow([
   1,
   2,
   3,
-  4,
+  4n,
 ])
 writer.appendRowObject({
   bool: true,
@@ -62,11 +64,12 @@ writer.appendRowObject({
   date32: 1,
   timestamp: 2,
   time32: 3,
-  time64: 4,
+  time64: 4n,
   uint32: 5,
   int32: 6,
-  int64: 6,
+  int64: 7,
   float: 1.0,
   double: 2.0,
+  uint64: 1000n,
 })
 writer.close()

@@ -31,7 +31,7 @@ namespace Types {
     F_ENUMSET("INT16",                    INT16),
     F_ENUMSET("UINT32",                   UINT32),
     F_ENUMSET("INT32",                    INT32),
-    // F_ENUMSET("UINT64",                   UINT64),                   // Not currently supported by Napi
+    F_ENUMSET("UINT64",                   UINT64),
     F_ENUMSET("INT64",                    INT64),
     // F_ENUMSET("HALF_FLOAT",               HALF_FLOAT),               // Not currently supported by parquet
     F_ENUMSET("FLOAT",                    FLOAT),

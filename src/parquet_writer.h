@@ -35,6 +35,9 @@ static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Ob
   case arrow::Type::type::INT32:
     return MakeField(name, arrow::int32());
 
+  case arrow::Type::type::UINT64:
+    return MakeField(name, arrow::uint64());
+
   case arrow::Type::type::INT64:
     return MakeField(name, arrow::int64());
 
@@ -197,11 +200,29 @@ public:
         AppendScalar(columns[i], row.Get(i).ToNumber().Int32Value());
         break;
 
+      case arrow::Type::type::UINT64: {
+        auto value = row.Get(i);
+        auto lossless = true;
+        if (value.IsBigInt()) {
+          AppendScalar(columns[i], value.As<Napi::BigInt>().Uint64Value(&lossless));
+        } else {
+          AppendScalar(columns[i], static_cast<uint64_t>(value.ToNumber().Int64Value()));
+        }
+        break;
+      }
+
       case arrow::Type::type::INT64:
       case arrow::Type::type::TIMESTAMP:
-      case arrow::Type::type::TIME64:
-        AppendScalar(columns[i], row.Get(i).ToNumber().Int64Value());
+      case arrow::Type::type::TIME64: {
+        auto value = row.Get(i);
+        auto lossless = true;
+        if (value.IsBigInt()) {
+          AppendScalar(columns[i], value.As<Napi::BigInt>().Int64Value(&lossless));
+        } else {
+          AppendScalar(columns[i], value.ToNumber().Int64Value());
+        }
         break;
+      }
 
       case arrow::Type::type::FLOAT:
         AppendScalar(columns[i], row.Get(i).ToNumber().FloatValue());
