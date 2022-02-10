@@ -82,10 +82,6 @@ static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Ob
   }
 }
 
-inline static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Object& obj) {
-  return NapiObjToArrowField(name, obj, static_cast<arrow::Type::type>(obj.Get("type").ToNumber().Int32Value()));
-}
-
 struct Column {
   std::string key;
   arrow::Type::type type;
@@ -113,10 +109,10 @@ void AppendScalar<std::shared_ptr<arrow::Buffer>>(Column& column, const std::sha
   if (type->id() == arrow::Type::type::BINARY) {
     column.builder->AppendScalar(arrow::BinaryScalar(value));
   } else { // FIXED_SIZE_BINARY
-    if (value->size() == dynamic_cast<arrow::FixedSizeBinaryType&>(*type).byte_width()) {
-      column.builder->AppendScalar(arrow::FixedSizeBinaryScalar(value, type));
-    } else {
+    if (value->size() != dynamic_cast<arrow::FixedSizeBinaryType&>(*type).byte_width()) {
       throw std::runtime_error("FixedSizeBinary buffer is the wrong size");
+    }
+      column.builder->AppendScalar(arrow::FixedSizeBinaryScalar(value, type));
     }
   }
 }
