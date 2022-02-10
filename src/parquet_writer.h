@@ -134,7 +134,6 @@ public:
       DefineClass(env,
         "ParquetWriter", {
           InstanceMethod("appendRowArray",       &ParquetWriter::AppendRowArray),
-          InstanceMethod("appendRowObject",      &ParquetWriter::AppendRowObject),
           InstanceMethod("open",                 &ParquetWriter::Open),
           InstanceMethod("close",                &ParquetWriter::Close),
         });
@@ -292,34 +291,10 @@ public:
     return env.Undefined();
   }
 
-  Napi::Value AppendRowObject(const Napi::CallbackInfo& info) {
-    auto env = info.Env();
-    if (info.Length() < 1 || !info[0].IsObject()) {
-      Napi::TypeError::New(env, "row:Object expected").ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-
-    // Transform object to array
-    auto object = info[0].ToObject();
-    auto array = Napi::Array::New(env);
-    for (size_t i = 0; i < columns.size(); i++) {
-      array.Set(i, object.Get(columns[i].key));
-    }
-
-    try {
-      AppendRow(array);
-    } catch (const std::runtime_error& e) {
-      Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-      return env.Undefined();
-    }
-
-    return env.Undefined();
-  }
-
   Napi::Value Open(const Napi::CallbackInfo& info) {
     auto env = info.Env();
 
-    try{
+    try {
       PARQUET_ASSIGN_OR_THROW(
         outfile,
         arrow::io::FileOutputStream::Open(filepath));
