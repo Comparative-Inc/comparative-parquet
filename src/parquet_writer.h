@@ -307,7 +307,7 @@ public:
   }
 
   Napi::Value SetRowGroupSize(const Napi::CallbackInfo& info) {
-    // TODO
+    // Honestly not really sure how to implement this now.
     return info.Env().Undefined();
   }
 
