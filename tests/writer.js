@@ -29,14 +29,12 @@ const schema = {
   },
   time64: { 
     type: type.TIME64, 
-    unit: timeUnit.NANO,
+    unit: timeUnit.MICRO,
   },
 }
 
 const writer = new lib.ParquetWriter(schema, 'test-out.parquet')
-console.log("pre-open")
 writer.open()
-console.log("post-open")
 writer.appendRow([
   true,
   1,
@@ -54,8 +52,21 @@ writer.appendRow([
   3,
   4,
 ])
-// writer.appendRowObject({
-//   field_0: 2,
-//   field_1: 'As a dict',
-// })
+writer.appendRowObject({
+  bool: true,
+  uint8: 1,
+  int8: 2,
+  string: 'oatmeal',
+  uint16: 3,
+  int16: 4,
+  date32: 1,
+  timestamp: 2,
+  time32: 3,
+  time64: 4,
+  uint32: 5,
+  int32: 6,
+  int64: 6,
+  float: 1.0,
+  double: 2.0,
+})
 writer.close()
