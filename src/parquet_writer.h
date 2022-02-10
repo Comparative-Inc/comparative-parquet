@@ -113,7 +113,6 @@ void AppendScalar<std::shared_ptr<arrow::Buffer>>(Column& column, const std::sha
       throw std::runtime_error("FixedSizeBinary buffer is the wrong size");
     }
       column.builder->AppendScalar(arrow::FixedSizeBinaryScalar(value, type));
-    }
   }
 }
 
