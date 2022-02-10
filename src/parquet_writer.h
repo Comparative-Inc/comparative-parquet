@@ -65,13 +65,6 @@ static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Ob
     return MakeField(name, arrow::time64(unit));
   }
 
-  // Slightly hacky code for backwards compatability:
-  case 1000: // TIMESTAMP_MICROS
-    return MakeField(name, arrow::timestamp(arrow::TimeUnit::type::MICRO));
-
-  case 1001: // TIMESTAMP_MILLIS
-    return MakeField(name, arrow::timestamp(arrow::TimeUnit::type::MILLI));
-
   default:
     // Should only happen if JS users use a number instead of the enum
     throw std::runtime_error("Invalid type id");
