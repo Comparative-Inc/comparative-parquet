@@ -19,6 +19,11 @@ const schema = {
   float: { type: type.FLOAT },
   double: { type: type.DOUBLE },
   string: { type: type.STRING },
+  binary: { type: type.BINARY },
+  fixed_size_binary: {
+    type: type.FIXED_SIZE_BINARY,
+    width: 8,
+  },
   date32: { type: type.DATE32 },
   timestamp: { 
     type: type.TIMESTAMP, 
@@ -49,6 +54,8 @@ writer.appendRow([
   1.0,
   2.0,
   'oatmeal',
+  Buffer.from('test'),
+  Buffer.from('eightchr'),
   1,
   2,
   3,
@@ -71,5 +78,7 @@ writer.appendRowObject({
   float: 1.0,
   double: 2.0,
   uint64: 1000n,
+  binary: Buffer.from('test'),
+  fixed_size_binary: Buffer.from('eightchr'),
 })
 writer.close()

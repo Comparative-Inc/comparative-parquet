@@ -50,6 +50,14 @@ static ArrowFieldPtr NapiObjToArrowField(const std::string& name, const Napi::Ob
   case arrow::Type::type::STRING:
     return MakeField(name, arrow::utf8());
 
+  case arrow::Type::type::BINARY:
+    return MakeField(name, arrow::binary());
+
+  case arrow::Type::type::FIXED_SIZE_BINARY: {
+    auto width = obj.Get("width").ToNumber().Int32Value();
+    return MakeField(name, arrow::fixed_size_binary(width));
+  }
+
   case arrow::Type::type::DATE32:
     return MakeField(name, arrow::date32());
 
@@ -97,6 +105,20 @@ inline static void AppendScalar(Column& column, const T& value) {
 template <>
 void AppendScalar<std::string>(Column& column, const std::string& value) {
   column.builder->AppendScalar(arrow::StringScalar(value));
+}
+
+template <>
+void AppendScalar<std::shared_ptr<arrow::Buffer>>(Column& column, const std::shared_ptr<arrow::Buffer>& value) {
+  auto type = column.builder->type();
+  if (type->id() == arrow::Type::type::BINARY) {
+    column.builder->AppendScalar(arrow::BinaryScalar(value));
+  } else { // FIXED_SIZE_BINARY
+    if (value->size() == dynamic_cast<arrow::FixedSizeBinaryType&>(*type).byte_width()) {
+      column.builder->AppendScalar(arrow::FixedSizeBinaryScalar(value, type));
+    } else {
+      throw std::runtime_error("FixedSizeBinary buffer is the wrong size");
+    }
+  }
 }
 
 class ParquetWriter : public Napi::ObjectWrap<ParquetWriter> {
@@ -235,6 +257,17 @@ public:
       case arrow::Type::type::STRING:
         AppendScalar(columns[i], row.Get(i).ToString().Utf8Value());
         break;
+
+      case arrow::Type::type::BINARY:
+      case arrow::Type::type::FIXED_SIZE_BINARY: {
+        arrow::BufferBuilder arrowBuf;
+        auto napiBuf = row.Get(i).As<Napi::Buffer<uint8_t>>();
+        arrowBuf.Append(napiBuf.Data(), napiBuf.Length());
+        std::shared_ptr<arrow::Buffer> finalBuf;
+        arrowBuf.Finish(&finalBuf);
+        AppendScalar(columns[i], finalBuf);
+        break;
+      }
 
       default:
         // Should only happen if a JS user isn't using the enum

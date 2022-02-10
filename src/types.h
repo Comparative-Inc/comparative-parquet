@@ -37,8 +37,8 @@ namespace Types {
     F_ENUMSET("FLOAT",                    FLOAT),
     F_ENUMSET("DOUBLE",                   DOUBLE),
     F_ENUMSET("STRING",                   STRING),
-    // F_ENUMSET("BINARY",                   BINARY),                   // Not currently support by Napi
-    // F_ENUMSET("FIXED_SIZE_BINARY",        FIXED_SIZE_BINARY),        // ...
+    F_ENUMSET("BINARY",                   BINARY),                   // Not currently support by Napi
+    F_ENUMSET("FIXED_SIZE_BINARY",        FIXED_SIZE_BINARY),        // ...
     F_ENUMSET("DATE32",                   DATE32),
     // F_ENUMSET("DATE64",                   DATE64),                   // Equivalent to smaller version
     F_ENUMSET("TIMESTAMP",                TIMESTAMP),                 // Supports MILLI, MICRO, and NANO
