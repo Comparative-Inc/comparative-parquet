@@ -137,7 +137,6 @@ public:
           InstanceMethod("appendRowObject",      &ParquetWriter::AppendRowObject),
           InstanceMethod("open",                 &ParquetWriter::Open),
           InstanceMethod("close",                &ParquetWriter::Close),
-          InstanceMethod("setRowGroupSize",      &ParquetWriter::SetRowGroupSize),
         });
 
     auto constructor = new Napi::FunctionReference();
@@ -351,11 +350,6 @@ public:
     }
 
     return env.Undefined();
-  }
-
-  Napi::Value SetRowGroupSize(const Napi::CallbackInfo& info) {
-    // Honestly not really sure how to implement this now.
-    return info.Env().Undefined();
   }
 
 protected:
