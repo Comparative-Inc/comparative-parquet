@@ -40,6 +40,7 @@ const schema = {
 }
 
 const writer = new lib.ParquetWriter(schema, 'test-out.parquet')
+writer.setRowGroupSize(256)
 writer.open()
 writer.appendRow([
   true,

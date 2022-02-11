@@ -5,6 +5,7 @@
 
 #include <arrow/builder.h>
 #include <parquet/arrow/writer.h>
+#include <parquet/properties.h>
 
 #include <vector>
 
@@ -122,6 +123,7 @@ protected:
   ArrowSchemaPtr schema;
   std::vector<Column> columns;
   std::shared_ptr<arrow::io::FileOutputStream> outfile;
+  parquet::WriterProperties::Builder propBuilder;
 
 public:
   static Napi::Object Init(Napi::Env env, Napi::Object exports) {
@@ -131,6 +133,7 @@ public:
           InstanceMethod("appendRowArray",       &ParquetWriter::AppendRowArray),
           InstanceMethod("open",                 &ParquetWriter::Open),
           InstanceMethod("close",                &ParquetWriter::Close),
+          InstanceMethod("setRowGroupSize",      &ParquetWriter::SetRowGroupSize),
         });
 
     auto constructor = new Napi::FunctionReference();
@@ -171,7 +174,12 @@ public:
 
       std::unique_ptr<arrow::ArrayBuilder> builder;
 
-      arrow::MakeBuilder(arrow::default_memory_pool(), fields.back()->type(), &builder);
+      try {
+        PARQUET_THROW_NOT_OK(arrow::MakeBuilder(arrow::default_memory_pool(), fields.back()->type(), &builder));
+      } catch (const parquet::ParquetException& e) {
+        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
+        return;
+      }
       columns.push_back(Column{std::move(name), type, std::move(builder)});
     }
 
@@ -313,12 +321,24 @@ public:
 
     try {
       PARQUET_THROW_NOT_OK(
-        parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, 3));
+        parquet::arrow::WriteTable(*table, arrow::default_memory_pool(), outfile, 3, propBuilder.build()));
     } catch (const parquet::ParquetException& e) {
       Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
       return env.Undefined();
     }
 
+    outfile->Close();
+    return env.Undefined();
+  }
+
+  Napi::Value SetRowGroupSize(const Napi::CallbackInfo& info) {
+    auto env = info.Env();
+    if (info.Length() < 1 || !info[0].IsNumber()) {
+      Napi::TypeError::New(env, "size:number expected").ThrowAsJavaScriptException();
+      return env.Undefined();
+    }
+
+    propBuilder.max_row_group_length(info[0].ToNumber().Int64Value());
     return env.Undefined();
   }
 
