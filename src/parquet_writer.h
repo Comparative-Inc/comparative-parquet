@@ -157,12 +157,12 @@ public:
     filepath = info[1].ToString().Utf8Value();
 
     // Build schema
-    auto schema = info[0].As<Napi::Object>();
-    auto keys = schema.GetPropertyNames();
+    auto schemaJS = info[0].As<Napi::Object>();
+    auto keys = schemaJS.GetPropertyNames();
     arrow::FieldVector fields;
     for (uint32_t i = 0; i < keys.Length(); i++) {
       auto name = keys.Get(i).ToString().Utf8Value();
-      auto fieldObj = schema.Get(name).ToObject();
+      auto fieldObj = schemaJS.Get(name).ToObject();
       auto type = static_cast<arrow::Type::type>(fieldObj.Get("type").ToNumber().Int32Value());
 
       try {
@@ -183,7 +183,7 @@ public:
       columns.push_back(Column{std::move(name), type, std::move(builder)});
     }
 
-    this->schema = arrow::schema(fields);
+    schema = arrow::schema(fields);
   }
 
   void AppendRow(const Napi::Array& row) {
