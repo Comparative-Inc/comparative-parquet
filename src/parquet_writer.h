@@ -157,12 +157,12 @@ public:
     filepath = info[1].ToString().Utf8Value();
 
     // Build schema
-    auto schemaJS = info[0].As<Napi::Object>();
-    auto keys = schemaJS.GetPropertyNames();
+    auto jsSchema = info[0].As<Napi::Object>();
+    auto keys = jsSchema.GetPropertyNames();
     arrow::FieldVector fields;
     for (uint32_t i = 0; i < keys.Length(); i++) {
       auto name = keys.Get(i).ToString().Utf8Value();
-      auto fieldObj = schemaJS.Get(name).ToObject();
+      auto fieldObj = jsSchema.Get(name).ToObject();
       auto type = static_cast<arrow::Type::type>(fieldObj.Get("type").ToNumber().Int32Value());
 
       try {
