@@ -30,7 +30,7 @@
               ],
               "xcode_settings": {
                   "OTHER_CFLAGS": [
-                      "<!@(pkg-config --cflags parquet arrow) -fexceptions -frtti",
+                      "<!@(pkg-config --cflags parquet arrow) -std=c++17 -fexceptions -frtti",
                   ],
                   "OTHER_LDFLAGS": [
                       "<!@(pkg-config --libs parquet arrow) -lpthread",
