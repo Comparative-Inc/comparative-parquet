@@ -8,17 +8,11 @@
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
       ],
-      "cflags!": [
-        "-fno-exceptions", "-fno-rtti"
-      ],
       "cflags_cc!": [
         "-std=gnu++17", "-fno-exceptions", "-fno-rtti"
       ],
       "cflags_cc": [
-        "-std=c++17", "-fexceptions", "-frtti"
-      ],
-      "cflags": [
-        "<!@(pkg-config --cflags parquet arrow) -Wall -g",
+        "<!@(pkg-config --cflags parquet arrow) -Wall -g -std=c++17", "-fexceptions", "-frtti"
       ],
       "ldflags": [
         "-Wl,-no-as-needed",
