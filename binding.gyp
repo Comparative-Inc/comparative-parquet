@@ -8,11 +8,10 @@
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"
       ],
-      "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
-      "cflags_cc!": [ "-fno-exceptions", "-fno-rtti" ],
-      "cflags_cc": [ "-std=c++17", "-fexceptions", "-frtti" ],
+      "cflags_cc": [
+        "<!@(pkg-config --cflags parquet arrow)", "-Wall", "-g", "-std=c++17", "-fexceptions", "-frtti" ],
       "cflags": [
-          "<!@(pkg-config --cflags parquet arrow) -Wall -g",
+        "<!@(pkg-config --cflags parquet arrow) -Wall -g",
       ],
       "ldflags": [
           "-Wl,-no-as-needed",
@@ -29,8 +28,8 @@
                   "PLATFORM_MAC=1",
               ],
               "xcode_settings": {
-                  "OTHER_CFLAGS": [
-                      "<!@(pkg-config --cflags parquet arrow) -std=c++17 -fexceptions -frtti",
+                  "OTHER_CPLUSPLUSFLAGS": [
+                    "<!@(pkg-config --cflags parquet arrow)", "-std=c++17", "-fexceptions", "-frtti"
                   ],
                   "OTHER_LDFLAGS": [
                       "<!@(pkg-config --libs parquet arrow) -lpthread",
