@@ -3,7 +3,10 @@
     {
       "target_name": "comparative_parquet",
       "sources": [
+        "src/arrow_type_values.cc",
         "src/main.cc",
+        "src/parquet_reader.cc",
+        "src/parquet_writer.cc"
       ],
       "include_dirs": [
         "<!@(node -p \"require('node-addon-api').include\")"

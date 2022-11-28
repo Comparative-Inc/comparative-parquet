@@ -2,14 +2,13 @@
 #define FIELD_TYPE_H
 
 #include <napi.h>
-
-#include <arrow/type_fwd.h>
+#include "arrow_type_values.h"
 
 // Don't use these macros outside of this file
 // They assume the existense of a Napi::Env env variable
 #define ENUMSET(name, enum)   Set(name, Napi::Number::New(env, static_cast<double>(enum)))
-#define F_ENUMSET(name, enum) type.ENUMSET(name, arrow::Type::type::enum)
-#define T_ENUMSET(name, enum) timeUnit.ENUMSET(name, arrow::TimeUnit::type::enum)
+#define F_ENUMSET(name, enum) type.ENUMSET(name, cp::arrowType::enum())
+#define T_ENUMSET(name, enum) timeUnit.ENUMSET(name, cp::arrowTimeUnit::enum())
 
 // Enums that encompass all arrow types.
 
@@ -19,7 +18,7 @@
 
 // See FieldToNode() in <parquet/arrow/schema.cc> for the rational
 // behind these choices.
-namespace Types {
+namespace TypesBinding {
   inline Napi::Object Init(Napi::Env env, Napi::Object exports) {
     using Napi::Object;
 

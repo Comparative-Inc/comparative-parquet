@@ -1,12 +1,12 @@
 #include <napi.h>
-#include "parquet_reader.h"
-#include "parquet_writer.h"
-#include "types.h"
+#include "parquet_reader_binding.h"
+#include "parquet_writer_binding.h"
+#include "types_binding.h"
 
 Napi::Object InitAll(Napi::Env env, Napi::Object exports) {
-  ParquetWriter::Init(env, exports);
-  ParquetReader::Init(env, exports);
-  Types::Init(env, exports);
+  ParquetWriterBinding::Init(env, exports);
+  ParquetReaderBinding::Init(env, exports);
+  TypesBinding::Init(env, exports);
   return exports;
 }
 
