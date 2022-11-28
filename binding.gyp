@@ -11,7 +11,8 @@
       "cflags!": [ "-fno-exceptions", "-fno-rtti" ],
       "cflags_cc!": [ "-std=gnu++17", "-fno-exceptions", "-fno-rtti" ],
       "cflags_cc": [
-        "<!@(pkg-config --cflags parquet arrow)", "-Wall", "-g", "-std=c++17", "-fexceptions", "-frtti" ],
+        "-std=c++17", "-fexceptions", "-frtti"
+      ],
       "cflags": [
         "<!@(pkg-config --cflags parquet arrow) -Wall -g",
       ],
